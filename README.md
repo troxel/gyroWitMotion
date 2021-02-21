@@ -17,7 +17,7 @@ In evaluating the gyro
 https://www.wit-motion.com/digital-inclinometer/witmotion-hwt905-rs232.html
 
 I came across an issue when rotating on a turntable the angular velocity output from the HWT905 output drops to zero for some reason after a few seconds. Then when the rotation reverses direction the output from the HWT905 is double the actual rotation rate. And then again the output from the HWT905 drops to zero during constant rotation. See the plot
-of a ground reference gyro in the docs directory. 
+of a ground reference gyro in the docs directory. In the plot "gyro1" is the HWT905 with gyro calibration selected and other is reference gyro and demonstrated the true state of rotation. 
 
 ![Gyro Traces](/docs/gyro_traces.jpg)
 
