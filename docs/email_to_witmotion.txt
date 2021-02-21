@@ -1,0 +1,12 @@
+See attached side-by-side traces of angular velocity during a rotation. In the plot, gyro1 (blue trace) is the  HWT905 and gyro2 (purple trace) is a  WT61CRS232. The  WT61CRS232 (purple trace) does a great job of reporting the actual rotation rates the HWT905 does not. Both are configured to run in 6 axis mode. 
+
+These two gyros are sitting side-by-side on a turntable that turns 180 degrees right, 360 degrees left, and finally 180 right again. The speed of the turntable is approximately 20 degrees per minute. 
+
+During the first part of the rotation, the angular velocity output from the two gyros are right on top of each other. After about 5 seconds of rotation, the HWT905 output drops to zero for some reason. Then when the rotation reverses direction the output from the HWT905 is double the actual rotation rate. And then again the output from the HWT905 drops to zero during constant rotation.  Also, note at the end when the rotation stops (purple trace drops to zero) the  HWT905 keeps outputting an angular velocity even though the rotation has stopped. 
+
+The problem seems to be algorithmic so I was wondering if there is a new firmware update to the HWT905. Using the Windows software (MiniMU.exe) I notice there is a way to upload a new firmware but no indication of what is the current firmware. Please advise.
+
+I am doing product evaluation of various gyros for inclusion into an OEM stabilized Pan/Tilt. 
+
+
+WitMotion responded that the behavior is the result of compass kalman filter calibration. If you de-select the compass calibration then it doesn't give the erronous results while under 360 degree rotation
