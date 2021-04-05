@@ -1,20 +1,11 @@
 #ifndef SHMCMN_H
 #define SHMCMN_H
 
-
-
 #define SHMFILE  "/dev/shm/gyro0"
 
-struct State_t {
-    float angle[3];
-	float omega[3];
-	float acc[3];
-	float tdata[3];
-	int bytes_avail;
-};
 
-struct State_t * open_shm(char * shmfile);
-void close_shm(struct State_t * state_ptr);
+void * open_shm(char * shmfile,unsigned int memsize);
+void close_shm(void * state_ptr,unsigned int memsize);
 
 long diff_ns(struct timespec * t1, struct timespec * t2);
 

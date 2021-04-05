@@ -6,6 +6,7 @@ Reads a WitMotion gyro and displays to the console and updates a shared memory r
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -21,6 +22,7 @@ Reads a WitMotion gyro and displays to the console and updates a shared memory r
 #include <sys/stat.h>
 #include <semaphore.h>
 
+#include "mstate.h"
 #include "shmcmn.h"
 #include "gyroWitMotion.h"
 
@@ -52,8 +54,9 @@ int main(int argc, char **argv) {
 	
 	printf("Opening %s commport and creating %s mmap file\n",gyroport,shmfile);
 	
-	state_ptr = open_shm(shmfile);
-  
+   	state_ptr = open_shm(shmfile,sizeof(struct State_t));
+	//state_ptr = &gyro_state; // <-- if not using mmap
+
 	// ----- Serial ---- //
     int portfd = open_com(gyroport,B115200,33);
 	//tcflush(portfd,TCIOFLUSH);
@@ -61,20 +64,20 @@ int main(int argc, char **argv) {
 	clock_gettime(CLOCK_MONOTONIC, &t1);
 	while(1){
 
-		//read_mpu6050(&gyro_state,portfd);
-		read_mpu6050_chunk(&gyro_state,portfd);
+		//read_mpu6050(state_ptr,portfd);
+		read_mpu6050_chunk(state_ptr,portfd);
 		clock_gettime(CLOCK_MONOTONIC, &t2);
 		//long diff = diff_ns(&t1,&t2); printf("diff => %ld",diff);
 		//t1.tv_sec = t2.tv_sec; t1.tv_nsec = t2.tv_nsec;
 
 		//read_bytes(portfd);
-		print_state(&gyro_state);
-		//print_omega(&gyro_state);
-		memcpy(state_ptr,&gyro_state,sizeof(gyro_state));
+		print_state(state_ptr);
+		//print_omega(state_ptr);
+		//memcpy(state_ptr,sizeof(struct State_t));
 
 	}
 
-	close_shm(state_ptr);
+	close_shm(state_ptr,sizeof(struct State_t));
 }	
 
 // Read bytes
@@ -100,7 +103,7 @@ void read_bytes(int portfd){
 }
 
 // ----------------------------------------------------
-int read_mpu6050(struct State_t * gyro_state,int portfd){
+int read_mpu6050(struct State_t * state_ptr,int portfd){
 
 	unsigned char rbuf[11] = {0};
 	unsigned char dummy;
@@ -141,22 +144,22 @@ int read_mpu6050(struct State_t * gyro_state,int portfd){
 		
  		switch( rbuf[1] ) {
 			case 0x51:
-				gyro_state->acc[0] = (float)(signed int)(rbuf[3]<<8 | rbuf[2]) * ACC_CONF;
-				gyro_state->acc[1] = (float)(rbuf[5]<<8 | rbuf[4]) * ACC_CONF;
-				gyro_state->acc[2] = (float)(rbuf[7]<<8 | rbuf[6]) * ACC_CONF;
-				gyro_state->tdata[0] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
+				state_ptr->acc[0] = (float)(signed int)(rbuf[3]<<8 | rbuf[2]) * ACC_CONF;
+				state_ptr->acc[1] = (float)(rbuf[5]<<8 | rbuf[4]) * ACC_CONF;
+				state_ptr->acc[2] = (float)(rbuf[7]<<8 | rbuf[6]) * ACC_CONF;
+				state_ptr->tdata[0] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
 				break;
 			case 0x52:
-				gyro_state->omega[0] = (float)(signed int)(rbuf[3]<<8 | rbuf[2]) * OMEGA_CONV;
-				gyro_state->omega[1] = (float)(signed int)(rbuf[5]<<8 | rbuf[4]) * OMEGA_CONV;
-				gyro_state->omega[2] = (float)(signed int)(rbuf[7]<<8 | rbuf[6]) * OMEGA_CONV;
-				gyro_state->tdata[1] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
+				state_ptr->omega[0] = (float)(signed int)(rbuf[3]<<8 | rbuf[2]) * OMEGA_CONV;
+				state_ptr->omega[1] = (float)(signed int)(rbuf[5]<<8 | rbuf[4]) * OMEGA_CONV;
+				state_ptr->omega[2] = (float)(signed int)(rbuf[7]<<8 | rbuf[6]) * OMEGA_CONV;
+				state_ptr->tdata[1] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
 				break;
 			case 0x53:
-				gyro_state->angle[0] = (float)(rbuf[3]<<8 | rbuf[2]) * ANG_CONV;
-				gyro_state->angle[1] = (float)(rbuf[5]<<8 | rbuf[4]) * ANG_CONV;
-				gyro_state->angle[2] = (float)(rbuf[7]<<8 | rbuf[6]) * ANG_CONV;
-				gyro_state->tdata[2] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
+				state_ptr->angle[0] = (float)(rbuf[3]<<8 | rbuf[2]) * ANG_CONV;
+				state_ptr->angle[1] = (float)(rbuf[5]<<8 | rbuf[4]) * ANG_CONV;
+				state_ptr->angle[2] = (float)(rbuf[7]<<8 | rbuf[6]) * ANG_CONV;
+				state_ptr->tdata[2] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
 
 				return(1);
 				
@@ -169,7 +172,7 @@ int read_mpu6050(struct State_t * gyro_state,int portfd){
 }		
 
 // ----------------------------------------------------
-int read_mpu6050_chunk(struct State_t * gyro_state,int portfd){
+int read_mpu6050_chunk(struct State_t * state_ptr,int portfd){
 
 	unsigned char rbuf[33] = {0};
 	unsigned char dummy[11];
@@ -219,41 +222,39 @@ int read_mpu6050_chunk(struct State_t * gyro_state,int portfd){
 		break; // made it
 	}	
 
-	gyro_state->acc[0] = (float)(short int)(rbuf[3]<<8 | rbuf[2]) * ACC_CONF;
-	gyro_state->acc[1] = (float)(short int)(rbuf[5]<<8 | rbuf[4]) * ACC_CONF;
-	gyro_state->acc[2] = (float)(short int)(rbuf[7]<<8 | rbuf[6]) * ACC_CONF;
-	gyro_state->tdata[0] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
+	state_ptr->acc[0] = (float)(short int)(rbuf[3]<<8 | rbuf[2]) * ACC_CONF;
+	state_ptr->acc[1] = (float)(short int)(rbuf[5]<<8 | rbuf[4]) * ACC_CONF;
+	state_ptr->acc[2] = (float)(short int)(rbuf[7]<<8 | rbuf[6]) * ACC_CONF;
+	state_ptr->tdata[0] = (float)(rbuf[9]<<8| rbuf[8])/340+36.25;
 
-	gyro_state->omega[0] = (float)(short int)(rbuf[14]<<8 | rbuf[13]) * OMEGA_CONV;
-	gyro_state->omega[1] = (float)(short int)(rbuf[16]<<8 | rbuf[15]) * OMEGA_CONV;
-	gyro_state->omega[2] = (float)(short int)(rbuf[18]<<8 | rbuf[17]) * OMEGA_CONV;
-	gyro_state->tdata[1] = (float)(rbuf[20]<<8| rbuf[19])/340+36.25;
+	state_ptr->omega[0] = (float)(short int)(rbuf[14]<<8 | rbuf[13]) * OMEGA_CONV;
+	state_ptr->omega[1] = (float)(short int)(rbuf[16]<<8 | rbuf[15]) * OMEGA_CONV;
+	state_ptr->omega[2] = (float)(short int)(rbuf[18]<<8 | rbuf[17]) * OMEGA_CONV;
+	state_ptr->tdata[1] = (float)(rbuf[20]<<8| rbuf[19])/340+36.25;
 
-	gyro_state->angle[0] = (float)(short int)(rbuf[25]<<8 | rbuf[24]) * ANG_CONV;
-	gyro_state->angle[1] = (float)(short int)(rbuf[27]<<8 | rbuf[26]) * ANG_CONV;
-	gyro_state->angle[2] = (float)(short int)(rbuf[29]<<8 | rbuf[28]) * ANG_CONV;
-	gyro_state->tdata[2] = (float)(rbuf[31]<<8| rbuf[30])/340+36.25;
+	state_ptr->angle[0] = (float)(short int)(rbuf[25]<<8 | rbuf[24]) * ANG_CONV;
+	state_ptr->angle[1] = (float)(short int)(rbuf[27]<<8 | rbuf[26]) * ANG_CONV;
+	state_ptr->angle[2] = (float)(short int)(rbuf[29]<<8 | rbuf[28]) * ANG_CONV;
+	state_ptr->tdata[2] = (float)(rbuf[31]<<8| rbuf[30])/340+36.25;
 
-	gyro_state->bytes_avail = bytes_avail;
-	
 	return(1);  
 }		
 
 // --------------------------------------
-void print_state(struct State_t * gyro_state){
+void print_state(struct State_t * state_ptr){
 
 	printf("\033[2J\033[F\033[F\033[F\033[F");
 	for( int i=0;i<3;i++){
-		printf("%7.3f \t %7.3f \t %7.3f\n", gyro_state->angle[i],gyro_state->omega[i],gyro_state->acc[i]);
+		printf("%7.3f \t %7.3f \t %7.3f\n", state_ptr->angle[i],state_ptr->omega[i],state_ptr->acc[i]);
 	}
-	//printf("%d\n",gyro_state->bytes_avail);
-	//printf("%7.3f %7.3f %7.3f\n",gyro_state->tdata[0],gyro_state->tdata[1],gyro_state->tdata[2]);
+	//printf("%d\n",state_ptr->bytes_avail);
+	//printf("%7.3f %7.3f %7.3f\n",state_ptr->tdata[0],state_ptr->tdata[1],state_ptr->tdata[2]);
 }
 
 // --------------------------------------
-void print_omega(struct State_t * gyro_state){
-	printf("%*s", abs( (int)(gyro_state->omega[2]+1) ) , " ");
-	printf("%7.1f\n", gyro_state->omega[2]);
+void print_omega(struct State_t * state_ptr){
+	printf("%*s", abs( (int)(state_ptr->omega[2]+1) ) , " ");
+	printf("%7.1f\n", state_ptr->omega[2]);
 }
 
 

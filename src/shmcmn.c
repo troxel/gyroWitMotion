@@ -12,7 +12,7 @@
 
 int shmfd; 
 
-struct State_t * open_shm(char * shmfile) {
+void * open_shm(char * shmfile, unsigned int memsize ) {
 
 	shmfd = open(shmfile, O_RDWR | O_CREAT, 0660);
   	if ( shmfd < 0 )  {
@@ -20,27 +20,28 @@ struct State_t * open_shm(char * shmfile) {
 		exit(-1);
 	}
 
-	ftruncate(shmfd, sizeof(struct State_t)); 
+	ftruncate(shmfd, memsize); 
 
-	struct State_t * state_ptr = mmap(NULL,
-        	    sizeof(struct State_t),
+	void * state_ptr = mmap(NULL,
+        	    memsize,
         	    PROT_READ | PROT_WRITE,
 				MAP_SHARED, 
        			shmfd,
         	    0);
 
-	return(state_ptr);		
+	printf("Opened %s as shared mmap at location %p\n",shmfile, state_ptr);
 
+	return(state_ptr);		
 }
 
-void close_shm(struct State_t * state_ptr) {
+void close_shm(void * state_ptr, unsigned int memsize) {
 
 	/* clean up */
-  	munmap(state_ptr, sizeof(struct State_t));
+  	munmap(state_ptr, memsize);
   	close(shmfd);
 }
 
-
+/*
 long diff_ns(struct timespec * t1, struct timespec * t2)
 {
 	// t1 -> prev
@@ -54,3 +55,4 @@ long diff_ns(struct timespec * t1, struct timespec * t2)
 	}
 	return(tdiff);
 }	
+*/
